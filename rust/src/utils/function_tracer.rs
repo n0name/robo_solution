@@ -18,7 +18,7 @@ impl Drop for FunctionTracer {
     fn drop(&mut self) {
         let end = Instant::now();
         let dur = end - self.start;
-        println!("{} took {:.3} {}", self.func_name, dur.as_secs_f32(), self.message_postfix);
+        println!("{} took {:.5} {}", self.func_name, dur.as_secs_f32(), self.message_postfix);
     }
 }
 

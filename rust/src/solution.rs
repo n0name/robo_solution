@@ -3,6 +3,8 @@ use crate::utils::{
     function_tracer::FunctionTracer
 };
 
+use rayon::prelude::*;
+
 fn compute_image(image: &mut StrideImage) {
     // let res = image.resolution;
     // let pixels = &mut image.pixels_red;
@@ -32,7 +34,7 @@ fn compute_image(image: &mut StrideImage) {
 pub fn compute_solution(images: &mut Vec<Image>) {
     let ft = FunctionTracer::new("compute_solution", "seconds");
 
-    images.iter_mut().for_each(|img| {
+    images.par_iter_mut().for_each(|img| {
         if let Image::StrideImage(data) = img {
             compute_image(data);
         }
