@@ -68,7 +68,7 @@ def compute_solution(images: List[Union[PackedImage, StrideImage]]):
     ft = FunctionTracer("compute_solution", "seconds")
 
     for img in images:
-        fix_image3(img)
+        fix_image2(img)
 
     del ft
             
