@@ -60,11 +60,15 @@ def fix_image2(image: StrideImage):
                     pattern_row[pi:pi+5] = (p if p < 200 else p - 150 for p in pattern_row[pi:pi+5])
                     write_row(pat_ri, pattern_row)
 
+def fix_image3(image: StrideImage):
+    """ really !?! """
+    image.pixels_red = list(p if p < 200 else p - 150 for p in image.pixels_red)
+
 def compute_solution(images: List[Union[PackedImage, StrideImage]]):
     ft = FunctionTracer("compute_solution", "seconds")
 
     for img in images:
-        fix_image2(img)
+        fix_image3(img)
 
     del ft
             
