@@ -38,11 +38,33 @@ def fix_image(image: StrideImage):
                         if tmp >= 200:
                             image.pixels_red[tmp_idx] = tmp - 150
 
+def fix_image2(image: StrideImage):
+    """
+    Optimization of fix_image() by removing the direct indexing of pixels and replacing
+    it with list slices
+    """
+    res = image.resolution
+
+    def get_row(row_idx: int):
+        return image.pixels_red[row_idx*res.width:(row_idx+1)*res.width]
+
+    def write_row(row_idx: int, data: List[int]):
+        image.pixels_red[row_idx*res.width:(row_idx+1)*res.width] = data
+
+    for ri in range(res.height):
+        row = get_row(ri)
+        for pi, pix in enumerate(row):
+            if pix >= 200:
+                for pat_ri in range(ri,ri+5):
+                    pattern_row = get_row(pat_ri)
+                    pattern_row[pi:pi+5] = (p if p < 200 else p - 150 for p in pattern_row[pi:pi+5])
+                    write_row(pat_ri, pattern_row)
+
 def compute_solution(images: List[Union[PackedImage, StrideImage]]):
     ft = FunctionTracer("compute_solution", "seconds")
 
     for img in images:
-        fix_image(img)
+        fix_image2(img)
 
     del ft
             
