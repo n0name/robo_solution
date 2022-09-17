@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-
 from typing import (
     List,
     Tuple,
     Union
 )
+from sympy import im
+
+from torch import arange, uint8
+from utils.eye_pattern import EYE_PATTERN_1, EYE_PATTERN_2, EYE_PATTERN_3, EYE_PATTERN_4, EyePattern
 
 from utils.image import (
     ImageType,
@@ -13,62 +16,46 @@ from utils.image import (
 )
 
 from utils.function_tracer import FunctionTracer
+import numpy as np
 
-def fix_image(image: StrideImage):
+def convert_pattern(pattern: EyePattern) -> np.ndarray:
+    res = np.zeros((5, 5), dtype=np.uint8)
+    for ri, row in enumerate(pattern):
+        elemets = np.array([e != ' ' for e in row])
+        res[ri, :] = elemets.astype(np.uint8)
+    return res
+
+def calc_visual_hash(array: np.ndarray, start_x = 0, start_y = 0, thres=199) -> int:
     """
-    Levaraging the fact that all patterns are 5x5 squares and are not intersecting or partial
-    And the fact that we don't have pixels with values above 200 that do not belong to the pattern
-    We can scan the image to find the upper left pixel of each pattern occurance and then just 
-    subtract 150 from each pixel with value above 200 in 5x5 block
+    hash = 0
+    for y in range(start_y, start_y + 5):
+        for x in range(start_x, start_x + 5):
+            if array[y, x] > thres:
+                _x = x - start_x
+                _y = y - start_y
+                hash += (_x + _y * _y)
     """
-    res = image.resolution
+    assert start_y + 4 < array.shape[0] and start_x + 4 < array.shape[1]
+    tmp = (array[start_y:start_y+5, start_x:start_x+5] > thres).nonzero()
+    hash = np.sum(tmp[0] * tmp[0] + tmp[1])
+    return hash
 
-    def to_image_idx(x, y):
-        return y * res.width + x
-
-    for y in range(res.height):
-        for x in range(res.width):
-            idx = to_image_idx(x, y)
-            pix = image.pixels_red[idx]
-            if pix >= 200:
-                for py in range(5):
-                    for px in range(5):
-                        tmp_idx = to_image_idx(x + px, y + py)
-                        tmp = image.pixels_red[tmp_idx]
-                        if tmp >= 200:
-                            image.pixels_red[tmp_idx] = tmp - 150
-
-def fix_image2(image: StrideImage):
-    """
-    Optimization of fix_image() by removing the direct indexing of pixels and replacing
-    it with list slices
-    """
-    res = image.resolution
-
-    def get_row(row_idx: int):
-        return image.pixels_red[row_idx*res.width:(row_idx+1)*res.width]
-
-    def write_row(row_idx: int, data: List[int]):
-        image.pixels_red[row_idx*res.width:(row_idx+1)*res.width] = data
-
-    for ri in range(res.height):
-        row = get_row(ri)
-        for pi, pix in enumerate(row):
-            if pix >= 200:
-                for pat_ri in range(ri,ri+5):
-                    pattern_row = get_row(pat_ri)
-                    pattern_row[pi:pi+5] = (p if p < 200 else p - 150 for p in pattern_row[pi:pi+5])
-                    write_row(pat_ri, pattern_row)
-
-def fix_image3(image: StrideImage):
-    """ really !?! """
-    image.pixels_red = list(p if p < 200 else p - 150 for p in image.pixels_red)
 
 def compute_solution(images: List[Union[PackedImage, StrideImage]]):
     ft = FunctionTracer("compute_solution", "seconds")
 
+    patterns = [convert_pattern(p) for p in [EYE_PATTERN_1, EYE_PATTERN_2, EYE_PATTERN_3, EYE_PATTERN_4]]
+    hashes = [calc_visual_hash(p, thres=0) for p in patterns]
+    pattern_dict = dict(zip(hashes, patterns))
+
     for img in images:
-        fix_image2(img)
+        for y in range(img.resolution.height - 5):
+            for x in range(img.resolution.width - 5):
+                if img.pixels_red[y, x] >= 200 and img.pixels_red[y, x+4] >= 200:
+                    hash = calc_visual_hash(img.pixels_red, x, y)
+                    if hash in pattern_dict:
+                        pat = pattern_dict[hash]
+                        img.pixels_red[y:y+5, x:x+5] = img.pixels_red[y:y+5, x:x+5] - 150 * pat
 
     del ft
-            
+
