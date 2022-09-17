@@ -4,10 +4,14 @@ from typing import (
     Tuple,
     Union
 )
-from sympy import im
 
-from torch import arange, uint8
-from utils.eye_pattern import EYE_PATTERN_1, EYE_PATTERN_2, EYE_PATTERN_3, EYE_PATTERN_4, EyePattern
+from utils.eye_pattern import (
+    EyePattern,
+    EYE_PATTERN_1, 
+    EYE_PATTERN_2, 
+    EYE_PATTERN_3, 
+    EYE_PATTERN_4
+)
 
 from utils.image import (
     ImageType,
@@ -40,22 +44,35 @@ def calc_visual_hash(array: np.ndarray, start_x = 0, start_y = 0, thres=199) -> 
     hash = np.sum(tmp[0] * tmp[0] + tmp[1])
     return hash
 
+patterns = [convert_pattern(p) for p in [EYE_PATTERN_1, EYE_PATTERN_2, EYE_PATTERN_3, EYE_PATTERN_4]]
+hashes = [calc_visual_hash(p, thres=0) for p in patterns]
+pattern_dict = dict(zip(hashes, patterns))
+
+def fix_red_eyes(image: StrideImage) -> np.ndarray:
+    res = image.resolution
+    pixels_red = image.pixels_red.copy()
+    for y in range(res.height - 5):
+        for x in range(res.width - 5):
+            if pixels_red[y, x] >= 200 and pixels_red[y, x+4] >= 200:
+                hash = calc_visual_hash(pixels_red, x, y)
+                if hash in pattern_dict:
+                    pat = pattern_dict[hash]
+                    pixels_red[y:y+5, x:x+5] = pixels_red[y:y+5, x:x+5] - 150 * pat
+
+    return pixels_red
 
 def compute_solution(images: List[Union[PackedImage, StrideImage]]):
     ft = FunctionTracer("compute_solution", "seconds")
 
-    patterns = [convert_pattern(p) for p in [EYE_PATTERN_1, EYE_PATTERN_2, EYE_PATTERN_3, EYE_PATTERN_4]]
-    hashes = [calc_visual_hash(p, thres=0) for p in patterns]
-    pattern_dict = dict(zip(hashes, patterns))
+    from multiprocessing import Pool, cpu_count
 
-    for img in images:
-        for y in range(img.resolution.height - 5):
-            for x in range(img.resolution.width - 5):
-                if img.pixels_red[y, x] >= 200 and img.pixels_red[y, x+4] >= 200:
-                    hash = calc_visual_hash(img.pixels_red, x, y)
-                    if hash in pattern_dict:
-                        pat = pattern_dict[hash]
-                        img.pixels_red[y:y+5, x:x+5] = img.pixels_red[y:y+5, x:x+5] - 150 * pat
+    with Pool(cpu_count()) as p:
+        results = []
+        for img in images:
+            results.append(p.apply_async(fix_red_eyes, (img, )))
+
+        for r, i in zip(results, images):
+            i.pixels_red = r.get()
 
     del ft
 
