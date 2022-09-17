@@ -23,14 +23,18 @@ from utils.function_tracer import FunctionTracer
 import numpy as np
 
 def convert_pattern(pattern: EyePattern) -> np.ndarray:
+    """ Converts a pattern from tuple of strings to np.ndarray """
+
     res = np.zeros((5, 5), dtype=np.uint8)
     for ri, row in enumerate(pattern):
         elemets = np.array([e != ' ' for e in row])
         res[ri, :] = elemets.astype(np.uint8)
     return res
 
-def calc_visual_hash(array: np.ndarray, start_x = 0, start_y = 0, thres=199) -> int:
+def calc_visual_hash(array: np.ndarray, start_x: int = 0, start_y:int = 0, *, thres:int = 199) -> int:
     """
+    Calculates a hash function over a 5x5 grid of pixels with values grater than 'thres'
+
     hash = 0
     for y in range(start_y, start_y + 5):
         for x in range(start_x, start_x + 5):
@@ -39,6 +43,7 @@ def calc_visual_hash(array: np.ndarray, start_x = 0, start_y = 0, thres=199) -> 
                 _y = y - start_y
                 hash += (_x + _y * _y)
     """
+
     assert start_y + 4 < array.shape[0] and start_x + 4 < array.shape[1]
     tmp = (array[start_y:start_y+5, start_x:start_x+5] > thres).nonzero()
     hash = np.sum(tmp[0] * tmp[0] + tmp[1])
