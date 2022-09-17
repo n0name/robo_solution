@@ -66,18 +66,32 @@ def fix_red_eyes(image: StrideImage) -> np.ndarray:
 
     return pixels_red
 
+def fix_red_eyes2(image: StrideImage) -> np.ndarray:
+    pixels_red = image.pixels_red.copy()
+    possible_targets = (pixels_red[:-5, :-5] >= 200).nonzero()
+    for y, x in zip(*possible_targets):
+        hash = calc_visual_hash(pixels_red, x, y)
+        if hash in pattern_dict:
+            pat = pattern_dict[hash]
+            pixels_red[y:y+5, x:x+5] = pixels_red[y:y+5, x:x+5] - 150 * pat
+
+    return pixels_red
+
 def compute_solution(images: List[Union[PackedImage, StrideImage]]):
     ft = FunctionTracer("compute_solution", "seconds")
 
-    from multiprocessing import Pool, cpu_count
+    for img in images:
+        img.pixels_red = fix_red_eyes2(img)
 
-    with Pool(cpu_count()) as p:
-        results = []
-        for img in images:
-            results.append(p.apply_async(fix_red_eyes, (img, )))
+    # from multiprocessing import Pool, cpu_count
 
-        for r, i in zip(results, images):
-            i.pixels_red = r.get()
+    # with Pool(cpu_count()) as p:
+    #     results = []
+    #     for img in images:
+    #         results.append(p.apply_async(fix_red_eyes2, (img, )))
+
+    #     for r, i in zip(results, images):
+    #         i.pixels_red = r.get()
 
     del ft
 
